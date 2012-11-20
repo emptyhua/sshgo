@@ -3,9 +3,7 @@
 import os,sys,re
 import curses
 import locale 
-import signal
 import math
-import re
 from optparse import OptionParser
 
 locale.setlocale(locale.LC_ALL, '') 
