@@ -13,7 +13,7 @@ locale.setlocale(locale.LC_ALL, '')
 def _assert(exp, err):
     if not exp:
         print >>sys.stderr,err
-        exit(1)
+        sys.exit(1)
     
 class SSHGO:
 
@@ -160,7 +160,7 @@ class SSHGO:
         if self.search_keyword is not None:
             self.search_keyword = None
         else:
-            exit(0)
+            sys.exit(0)
 
     def enter_search_mode(self):
         screen_cols = curses.tigetnum('cols')
@@ -256,7 +256,7 @@ class SSHGO:
         else:
             self.restore_screen()
             ssh = 'ssh'
-            if os.popen('which zssh').read().strip() != '':
+            if os.popen('which zssh 2> /dev/null').read().strip() != '':
                 ssh = 'zssh'
             os.execvp(ssh, [ssh] + re.split(r'[ ]+', node['line']))
 
@@ -369,6 +369,6 @@ if __name__ == '__main__':
         host_file = options.config
     if not os.path.exists(host_file):
         print >>sys.stderr,'~/.ssh_hosts is not found'
-        exit(1)
+        sys.exit(1)
 
     sshgo = SSHGO(host_file)
