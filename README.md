@@ -29,6 +29,8 @@ script for managing ssh hosts list
 
 ##Keyboard shortcuts
 * exit: q
+* scroll up: k
+* scroll down: j
 * select host: space
 * search mode: /
 * exit from search result: q
