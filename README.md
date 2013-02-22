@@ -4,7 +4,7 @@ sshgo
 script for managing ssh hosts list
 
 ##screenshot
-![screenshot](//raw.github.com/emptyhua/sshgo/master/screenshot.png)
+![screenshot](https://raw.github.com/emptyhua/sshgo/master/screenshot.png)
 
 ##~/.ssh_hosts example
     Home
