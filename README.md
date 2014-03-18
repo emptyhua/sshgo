@@ -7,7 +7,8 @@ script for managing ssh hosts list
 ![screenshot](https://raw.github.com/emptyhua/sshgo/master/screenshot.png)
 
 ##~/.ssh_hosts example
-    Home
+    #add `-` before the line can close node 
+    -Home
         root@192.168.1.106
     Work
         root@comp1 -p 9999
@@ -19,7 +20,7 @@ script for managing ssh hosts list
             test@vm2
             test@vm3
             test@vm4
-        VirtualBox:
+        -VirtualBox:
             test@vbox1
             test@vbox2
             test@vbox3

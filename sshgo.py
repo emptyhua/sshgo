@@ -38,7 +38,7 @@ class SSHGO:
 
     screen = None
 
-    def _parse_tree_from_config_file(self, config_file, expand=True):
+    def _parse_tree_from_config_file(self, config_file):
         tree = {'line_number':None,'expanded':True,'line':None,'sub_lines':[]} 
         
         def find_parent_line(new_node):
@@ -70,8 +70,13 @@ class SSHGO:
 
         for line in open(config_file, 'r'):
             line_number += 1
-            if line.strip() == '':
+            line_con = line.strip()
+            if line_con == '' or line_con[0] == '#':
                 continue
+            expand = True
+            if line_con[0] == '-':
+                line_con = line_con[1:]
+                expand = False
             indent = re.findall(r'^[\t ]*(?=[^\t ])', line)[0]
             line_level = indent.count('    ') + indent.count('\t')
             if tree_level == None:
@@ -81,7 +86,7 @@ class SSHGO:
                         or line_level == tree_level + 1, 'invalid indent,line:' + str(line_number))
             tree_level = line_level
 
-            new_node = {'level':tree_level,'expanded':expand,'line_number':line_number,'line':line.strip(),'sub_lines':[]}
+            new_node = {'level':tree_level,'expanded':expand,'line_number':line_number,'line':line_con,'sub_lines':[]}
             nodes_pool.append(new_node)
             find_parent_line(new_node)['sub_lines'].append(new_node)
 
@@ -291,6 +296,8 @@ class SSHGO:
             #linenum = self.top_line_number + index
 
             line = node['line']
+            if len(node['sub_lines']):
+                line += '(%d)' % len(node['sub_lines'])
 
             prefix = ''
             if self.search_keyword is None:
