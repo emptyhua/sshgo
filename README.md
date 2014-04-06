@@ -32,6 +32,8 @@ script for managing ssh hosts list
 * exit: q
 * scroll up: k
 * scroll down: j
+* page up: u
+* page down: d
 * select host: space
 * search mode: /
 * exit from search result: q

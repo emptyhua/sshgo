@@ -1,21 +1,54 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import os,sys,re
 import curses
-import locale 
+import locale
 import math
 from optparse import OptionParser
 
-locale.setlocale(locale.LC_ALL, '') 
+locale.setlocale(locale.LC_ALL, '')
 
 def _assert(exp, err):
     if not exp:
         print >>sys.stderr,err
         sys.exit(1)
-    
+
+def _dedup(ls):
+    table = {}
+    for item in ls:
+        table[item] = None
+    ls_dedup = table.keys()
+    ls_dedup.sort()
+    return ls_dedup
+
+def _get_known_hosts():
+    fn = os.path.expanduser('~/.ssh/known_hosts')
+
+    hosts = []
+    if not os.path.exists(fn):
+        return hosts
+
+    fp = open(fn, 'r')
+    try:
+        lines = fp.readlines()
+        for line in lines:
+            line = line.split(' ')
+            host = line[0]
+            if host is None or len(host) == 0:
+                continue
+            if len(host.split(',')) == 2:
+                # hostname,ip
+                host = host[0]
+                continue
+            hosts.append(host)
+    finally:
+        fp.close()
+    return _dedup(hosts)
+
 class SSHGO:
 
-    UP = -1 
+    UP = -1
     DOWN = 1
 
     KEY_O = 79
@@ -28,6 +61,8 @@ class SSHGO:
     KEY_C = 67
     KEY_m = 109
     KEY_M = 77
+    KEY_d = 0x64
+    KEY_u = 0x75
     KEY_SPACE = 32
     KEY_ENTER = 10
     KEY_q = 113
@@ -36,10 +71,12 @@ class SSHGO:
     KEY_j = 106
     KEY_k = 107
 
+    KEY_SPLASH = 47
+
     screen = None
 
     def _parse_tree_from_config_file(self, config_file):
-        tree = {'line_number':None,'expanded':True,'line':None,'sub_lines':[]} 
+        tree = {'line_number':None,'expanded':True,'line':None,'sub_lines':[]}
         
         def find_parent_line(new_node):
             line_number = new_node['line_number']
@@ -88,20 +125,41 @@ class SSHGO:
 
             new_node = {'level':tree_level,'expanded':expand,'line_number':line_number,'line':line_con,'sub_lines':[]}
             nodes_pool.append(new_node)
-            find_parent_line(new_node)['sub_lines'].append(new_node)
+            parent = find_parent_line(new_node)
+            parent['sub_lines'].append(new_node)
 
         return tree, nodes_pool
 
-           
+
     def __init__(self, config_file):
-        
+
         self.hosts_tree, self.hosts_pool = self._parse_tree_from_config_file(config_file)
+
+        known_host_list = _get_known_hosts()
+        MAGIC_LINE_NUMBER = 666
+        known_hosts = {'sub_lines':[],
+                'line_number':MAGIC_LINE_NUMBER,
+                'line':'known hosts',
+                'expanded':False,
+                'level':0
+                }
+        for host in known_host_list:
+            known_hosts['sub_lines'].append({
+                'sub_lines':[],
+                'line_number':MAGIC_LINE_NUMBER,
+                'line':host,
+                'expanded':True,
+                'level':1
+                })
+
+        self.hosts_tree['sub_lines'].append(known_hosts)
+        self.hosts_pool.append(known_hosts)
 
         self.screen = curses.initscr()
         curses.noecho()
         curses.cbreak()
         curses.curs_set(0)
-        self.screen.keypad(1) 
+        self.screen.keypad(1)
         self.screen.border(0)
 
         self.top_line_number = 0
@@ -111,7 +169,7 @@ class SSHGO:
         curses.start_color()
         curses.use_default_colors()
 
-        #highlight 
+        #highlight
         curses.init_pair(2, curses.COLOR_WHITE, curses.COLOR_BLUE)
         self.COLOR_HIGHLIGHT = 2
         #red
@@ -128,18 +186,24 @@ class SSHGO:
 
         #black bg
         curses.init_pair(6, curses.COLOR_BLACK, curses.COLOR_BLACK)
-        self.COLOR_BBG = 6 
+        self.COLOR_BBG = 6
 
         self.run()
-        
+
     def run(self):
         while True:
             self.render_screen()
             c = self.screen.getch()
-            if c == curses.KEY_UP or c == self.KEY_k: 
+            if c == curses.KEY_UP or c == self.KEY_k:
                 self.updown(-1)
             elif c == curses.KEY_DOWN or c == self.KEY_j:
                 self.updown(1)
+            elif c == self.KEY_u:
+                for i in range(0, curses.tigetnum('lines')):
+                    self.updown(-1)
+            elif c == self.KEY_d:
+                for i in range(0, curses.tigetnum('lines')):
+                    self.updown(1)
             elif c == self.KEY_ENTER or c == self.KEY_SPACE:
                 self.toggle_node()
             elif c == self.KEY_ESC or c == self.KEY_q:
@@ -156,7 +220,7 @@ class SSHGO:
                 self.page_top()
             elif c == self.KEY_G:
                 self.page_bottom()
-            elif c == 47:
+            elif c == self.KEY_SPLASH:
                 self.enter_search_mode()
 
     def exit(self):
@@ -311,7 +375,7 @@ class SSHGO:
                 prefix += 'o'
             prefix += ' '
 
-            # highlight current line            
+            # highlight current line
             if index != self.highlight_line_number:
                 self.screen.addstr(index, 0, prefix, curses.color_pair(self.COLOR_RED))
                 self.screen.addstr(index, len(prefix), line)
@@ -340,40 +404,41 @@ class SSHGO:
         next_line_number = self.highlight_line_number + increment
 
         # paging
-        if increment == self.UP and self.highlight_line_number == 0 and self.top_line_number != 0:
-            self.top_line_number += self.UP 
+        if increment < 0 and self.highlight_line_number == 0 and self.top_line_number != 0:
+            self.top_line_number += self.UP
             return
-        elif increment == self.DOWN and next_line_number == curses.tigetnum('lines') and (self.top_line_number+curses.tigetnum('lines')) != visible_lines_count:
+        elif increment > 0 and next_line_number == curses.tigetnum('lines') and (self.top_line_number+curses.tigetnum('lines')) != visible_lines_count:
             self.top_line_number += self.DOWN
             return
 
         # scroll highlight line
-        if increment == self.UP and (self.top_line_number != 0 or self.highlight_line_number != 0):
+        if increment < 0 and (self.top_line_number != 0 or self.highlight_line_number != 0):
             self.highlight_line_number = next_line_number
-        elif increment == self.DOWN and (self.top_line_number+self.highlight_line_number+1) != visible_lines_count and self.highlight_line_number != curses.tigetnum('lines'):
+        elif increment > 0 and (self.top_line_number+self.highlight_line_number+1) != visible_lines_count and self.highlight_line_number != curses.tigetnum('lines'):
             self.highlight_line_number = next_line_number
- 
+
     def restore_screen(self):
         curses.initscr()
         curses.nocbreak()
         curses.echo()
         curses.endwin()
-    
+
     # catch any weird termination situations
     def __del__(self):
         self.restore_screen()
 
-    
+
 if __name__ == '__main__':
     parser = OptionParser()
     parser.add_option('-c', '--config', help='use specified config file instead of ~/.ssh_hosts')
-    options, args = parser.parse_args(sys.argv) 
+    options, args = parser.parse_args(sys.argv)
     host_file = os.path.expanduser('~/.ssh_hosts')
 
     if options.config is not None:
         host_file = options.config
     if not os.path.exists(host_file):
-        print >>sys.stderr,'~/.ssh_hosts is not found'
-        sys.exit(1)
+        print >>sys.stderr,'~/.ssh_hosts is not found, create it'
+        fp = open(host_file, 'w')
+        fp.close()
 
     sshgo = SSHGO(host_file)
