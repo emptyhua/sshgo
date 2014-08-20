@@ -1,9 +1,9 @@
 -Home
     root@192.168.1.106
 Work
-    root@comp1 -p 9999
-    root@comp2 -p 9999
-    root@comp3 -p 9999
+    root@comp1 -p 9999 #CentOS 5 X64
+    root@comp2 -p 9999 #CentOS 6 X64
+    root@comp3 -p 9999 #Debian 6 X64
 VHost
     VMWare
         test@vm1

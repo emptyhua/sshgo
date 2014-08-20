@@ -24,26 +24,20 @@ def _dedup(ls):
 
 def _get_known_hosts():
     fn = os.path.expanduser('~/.ssh/known_hosts')
-
     hosts = []
-    if not os.path.exists(fn):
-        return hosts
-
-    fp = open(fn, 'r')
     try:
-        lines = fp.readlines()
-        for line in lines:
-            line = line.split(' ')
-            host = line[0]
-            if host is None or len(host) == 0:
+        for line in open(fn, 'r'):
+            tmp = line.split(' ')
+            if not len(tmp) or not len(tmp[0]):
                 continue
-            if len(host.split(',')) == 2:
-                # hostname,ip
-                host = host[0]
-                continue
+            host = tmp[0].split(',')[0]
+            if host.find('[') != -1:
+                m = re.match(r'\[([^\]]+)\]:(\d+)', host)
+                if m is not None:
+                    host = '%s -p %s' % m.groups()
             hosts.append(host)
-    finally:
-        fp.close()
+    except IOError:
+        return hosts
     return _dedup(hosts)
 
 class SSHGO:
@@ -135,25 +129,33 @@ class SSHGO:
 
         self.hosts_tree, self.hosts_pool = self._parse_tree_from_config_file(config_file)
 
-        known_host_list = _get_known_hosts()
-        MAGIC_LINE_NUMBER = 666
-        known_hosts = {'sub_lines':[],
-                'line_number':MAGIC_LINE_NUMBER,
-                'line':'known hosts',
-                'expanded':False,
-                'level':0
-                }
-        for host in known_host_list:
-            known_hosts['sub_lines'].append({
-                'sub_lines':[],
-                'line_number':MAGIC_LINE_NUMBER,
-                'line':host,
-                'expanded':True,
-                'level':1
-                })
+        known_host_list     = _get_known_hosts()
 
-        self.hosts_tree['sub_lines'].append(known_hosts)
-        self.hosts_pool.append(known_hosts)
+        if len(known_host_list):
+            append_line_number  = self.hosts_pool[-1]['line_number'] + 1
+
+            known_hosts = {'sub_lines':[],
+                    'line_number':append_line_number,
+                    'line':'known hosts',
+                    'expanded':False,
+                    'level':0
+                    }
+
+            self.hosts_tree['sub_lines'].append(known_hosts)
+            self.hosts_pool.append(known_hosts)
+
+            for host in known_host_list:
+                append_line_number += 1
+                new_node = {
+                    'sub_lines':[],
+                    'line_number':append_line_number,
+                    'line':host,
+                    'expanded':True,
+                    'level':1
+                    }
+                known_hosts['sub_lines'].append(new_node)
+                self.hosts_pool.append(new_node)
+
 
         self.screen = curses.initscr()
         curses.noecho()
@@ -325,7 +327,8 @@ class SSHGO:
             ssh = 'ssh'
             if os.popen('which zssh 2> /dev/null').read().strip() != '':
                 ssh = 'zssh'
-            os.execvp(ssh, [ssh] + re.split(r'[ ]+', node['line']))
+            cmd = node['line'].split('#')[0]
+            os.execvp(ssh, [ssh] + re.split(r'[ ]+', cmd))
 
     def render_screen(self):
         # clear screen
