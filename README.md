@@ -3,10 +3,11 @@ sshgo
 
 script for managing ssh hosts list
 
-##screenshot
+## screenshot
 ![screenshot](https://raw.github.com/emptyhua/sshgo/master/screenshot.png)
 
-##~/.ssh_hosts example
+## ~/.ssh_hosts example
+
     #add `-` before the line can close node 
     -Home
         root@192.168.1.106
@@ -28,7 +29,7 @@ script for managing ssh hosts list
     MacOS
         hi@mymac
 
-##Keyboard shortcuts
+## Keyboard shortcuts
 * exit: q
 * scroll up: k
 * scroll down: j
