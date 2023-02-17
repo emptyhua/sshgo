@@ -140,9 +140,13 @@ class SSHGO:
 
         try:
             self.run()
+        except SystemExit:
+            self.restore_screen()
+            pass
         except:
             self.restore_screen()
             traceback.print_exc()
+
 
     def run(self):
         while True:
@@ -374,11 +378,6 @@ class SSHGO:
         curses.nocbreak()
         curses.echo()
         curses.endwin()
-
-    # catch any weird termination situations
-    def __del__(self):
-        self.restore_screen()
-
 
 if __name__ == '__main__':
     parser = OptionParser()
